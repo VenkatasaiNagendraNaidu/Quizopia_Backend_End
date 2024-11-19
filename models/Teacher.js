@@ -13,10 +13,13 @@ const teacherSchema = new mongoose.Schema({
   teacherID: { type: String, unique: true },  
   password: String, 
   isApproved: { type: Boolean, default: false },
-  students: [{ studentID: String, studentName: String }],
+  students: [{ studentID: String, studentName: String, studentEmail: String, studentPhone: String }],
   quizzes: [{
     quizName: String,
-    scheduledTime: Date,
+    scheduledTime: Date, // this will be removed
+    quizDate: Date, // Quiz Date
+    quizStartTime: Date, // Quiz Start Time
+    quizEndTime: Date, // Quiz End Time
     questions: [{
       question: String,
       options: [String],
@@ -26,6 +29,7 @@ const teacherSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
 
 teacherSchema.pre('save', function (next) {
   if (this.isNew) { 

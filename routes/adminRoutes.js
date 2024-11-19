@@ -1,6 +1,7 @@
 // routes/adminRoutes.js
 const express = require('express');
-const { getAllTeachers, getAllStudents,getPendingTeachers,getApprovedTeachers } = require('../controllers/adminController');
+const { getAllTeachers, getAllStudents,getPendingTeachers,getApprovedTeachers,getAdminNotices } = require('../controllers/adminController');
+const { toggleNoticeVisibility,getTeacherNoticesForAdmin,deleteAdminNotice,createAdminNotice,AllAdminNotices, getActiveAdminNotices } = require('../controllers/adminController');
 
 const router = express.Router();
 router.post('/login', async (req, res) => {
@@ -18,8 +19,19 @@ router.post('/login', async (req, res) => {
     }
   });
 
+// POST: Create a new admin notice
+router.post('/createAdminNotice', createAdminNotice);
+
+// GET: Fetch active admin notices
+router.get('/adminNotices', getActiveAdminNotices);
+router.get('/allAdminNotices',AllAdminNotices);
+router.delete('/deladminNotices/:id',deleteAdminNotice);
+router.get('/teacherNotices', getTeacherNoticesForAdmin);
+router.patch('/toggleVisibility/:id', toggleNoticeVisibility);
+
 router.get('/teachers', getAllTeachers);
 router.get('/students', getAllStudents);
 router.get('/pending-teachers', getPendingTeachers);
 router.get('/approved-teachers', getApprovedTeachers);
+router.get('/notices',getAdminNotices);
 module.exports = router;
