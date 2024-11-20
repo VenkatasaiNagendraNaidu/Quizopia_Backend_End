@@ -20,6 +20,7 @@ const teacherSchema = new mongoose.Schema({
     quizDate: Date, // Quiz Date
     quizStartTime: Date, // Quiz Start Time
     quizEndTime: Date, // Quiz End Time
+    // isattempted: { type: Boolean, default: false },
     questions: [{
       question: String,
       options: [String],

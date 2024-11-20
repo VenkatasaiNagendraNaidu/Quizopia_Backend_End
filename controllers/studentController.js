@@ -136,8 +136,10 @@ const getScorecard = async (req, res) => {
 
 const getQuizById = async (req, res) => {
   const { quizID } = req.params;
+  const studentID = req.body.studentID;  // Assuming studentID is passed in the request body
 
   try {
+    // Find the teacher that posted this quiz
     const teacher = await Teacher.findOne({ 'quizzes._id': quizID }, { quizzes: 1, firstName: 1, lastName: 1 });
     if (!teacher) {
       return res.status(404).json({ message: 'Quiz not found' });
@@ -146,14 +148,34 @@ const getQuizById = async (req, res) => {
     // Extract the specific quiz
     const quiz = teacher.quizzes.id(quizID);
 
+    // Find the student and update the quiz record as attempted
+    const student = await Student.findOne(studentID);
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Find the quiz in the student's record
+    const studentQuiz = student.quizzes.find(q => q.quizID === quizID);
+
+    if (studentQuiz) {
+      // Update the student's quiz as attempted
+      studentQuiz.attempted = true;
+
+      // Save the student record
+      await student.save();
+    } else {
+      return res.status(404).json({ message: 'Quiz not found in student record' });
+    }
+
+    // Return the quiz details
     res.status(200).json({
       quizName: quiz.quizName,
       teacherName: `${teacher.firstName} ${teacher.lastName}`,
       questions: quiz.questions,
-      quizID:quiz._id,
-      quizStartTime:quiz.quizStartTime,
-      quizEndTime:quiz.quizDate,
-      quizDate:quiz.quizDate
+      quizID: quiz._id,
+      quizStartTime: quiz.quizStartTime,
+      quizEndTime: quiz.quizEndTime,
+      quizDate: quiz.quizDate
     });
   } catch (error) {
     console.error(error);
@@ -163,64 +185,84 @@ const getQuizById = async (req, res) => {
 
 
 
+
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 
 // Function to handle quiz submission and calculate score
 const submitQuiz = async (req, res) => {
-  const quizID = req.params.quizID;
-  console.log(quizID);
-  
-  const { studentAnswers, studentID } = req.body; // Expecting student answers and student ID
+  const { studentID, score, totalQuestions, quizName,pdfUrl,QuizDate, postedBy, startTime, endTime } = req.body;
+  const quizID = req.body.quizID;
 
   try {
-    // Find the quiz in the teacher's document
-    const teacher = await Teacher.findOne({ 'quizzes._id': quizID });
-    if (!teacher) {
-      return res.status(404).json({ message: 'Quiz not found' });
-    }
+    // Calculate percentage (optional)
+    const percentage = (score / totalQuestions) * 100;
 
-    const quiz = teacher.quizzes.id(quizID);
-
-    // Calculate score
-    let score = 0;
-    quiz.questions.forEach((question, index) => {
-      if (question.correctAnswer === studentAnswers[index]) {
-        score++;
-      }
+    // Create a new scorecard entry
+    const newScorecard = new Scorecard({
+      quizName,
+      studentId: studentID,
+      quizId: quizID,
+      postedBy,
+      startTime,
+      QuizDate,
+      EndTime: endTime,
+      score,
+      pdfUrl,
+      percentage,
     });
 
-    const totalQuestions = quiz.questions.length;
-    const percentageScore = (score / totalQuestions) * 100;
+    // Save the scorecard to the database
+    await newScorecard.save();
 
-    // Generate the PDF with the score
-    const pdfFileName = `quiz-result-${studentID}-${quizID}.pdf`;
-    const doc = new PDFDocument();
-    doc.pipe(fs.createWriteStream(`./public/reports/${pdfFileName}`)); // Save the PDF file in the public folder
-
-    doc.fontSize(18).text(`Quiz Results: ${quiz.quizName}`, { align: 'center' });
-    doc.text(``, 20);
-    doc.fontSize(14).text(`Student ID: ${studentID}`, 100);
-    doc.text(`Score: ${score} / ${totalQuestions}`, 100);
-    doc.text(`Percentage: ${percentageScore.toFixed(2)}%`, 100);
-    doc.text(`Date: ${new Date().toLocaleString()}`, 100);
-
-    doc.end(); // Close the PDF document
-
-    // Save the result to student's history (optional)
-    // You can store this result in the student's record if needed
-
-    res.status(200).json({
-      message: 'Quiz submitted successfully!',
-      score: score,
-      totalQuestions: totalQuestions,
-      pdfURL: `/reports/${pdfFileName}`, // URL to download the PDF
+    res.status(201).json({
+      message: 'Scorecard saved successfully!',
+      scorecard: newScorecard,
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Server error submitting quiz' });
+    res.status(500).json({
+      message: 'Error saving scorecard',
+      error,
+    });
+  }
+};
+
+const scoreCards =async (req, res) => {
+  const { studentId } = req.params;
+  
+  try {
+    // Fetch scorecards from the database
+    const scorecards = await Scorecard.find({ studentId });
+    
+    if (!scorecards || scorecards.length === 0) {
+      return res.status(404).json({ message: 'No scorecards found' });
+    }
+
+    // Return the scorecards as JSON
+    res.status(200).json(scorecards);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching scorecards' });
+  }
+};
+const getStudentQuizzes = async (req, res) => {
+  const studentID = req.body.studentID;
+  
+  
+  try {
+    const student = await Student.findOne(studentID);
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Return the quizzes array with quizID and attempted status
+    res.status(200).json(student.quizzes);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error fetching student quizzes' });
   }
 };
 
 
-module.exports = { submitQuiz,getQuizById,getQuizzesForStudents,signupStudent,studentLogin,getNotices,getScorecard };
+module.exports = { getStudentQuizzes,scoreCards,submitQuiz,getQuizById,getQuizzesForStudents,signupStudent,studentLogin,getNotices,getScorecard };

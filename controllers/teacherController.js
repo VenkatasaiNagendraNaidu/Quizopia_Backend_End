@@ -296,10 +296,9 @@ const getTeacherQuizzes = async (req, res) => {
 
   const saveQuiz = async (req, res) => {
     const { questions, quizName, quizDate, combinedDateTime, teacherID } = req.body;
-    console.log(req.body);
     
     try {
-      const teacher = await Teacher.findOne({ teacherID }); // Corrected find method
+      const teacher = await Teacher.findOne({ teacherID }); // Find the teacher by teacherID
       if (!teacher) {
         return res.status(404).json({ message: 'Teacher not found' });
       }
@@ -319,28 +318,54 @@ const getTeacherQuizzes = async (req, res) => {
       const quizEndTime = new Date(combinedDateTime);
       quizEndTime.setHours(quizEndTime.getHours() + 1);
   
-      // Add the new quiz
-      teacher.quizzes.push({
+      // Create the new quiz object
+      const newQuiz = {
         quizName,
         quizDate,
-        quizStartTime:combinedDateTime,
+        quizStartTime: combinedDateTime,
         quizEndTime,
         questions: formattedQuestions,
-      });
-      console.log(quizName,
-        quizDate,
-        combinedDateTime,
-        quizEndTime,
-         formattedQuestions,);
-      
+      };
   
+      // Add the quiz to the teacher's quizzes array
+      teacher.quizzes.push(newQuiz);
+      
+      // Save the updated teacher document
       await teacher.save();
-      res.status(201).json({ message: 'Quiz saved successfully!' });
+  
+      // Get the ID of the newly added quiz
+      const quizID = teacher.quizzes[teacher.quizzes.length - 1]._id;
+  
+      // Find the students associated with this teacher and update their quizzes array
+      const students = teacher.students; // Assuming 'students' is an array of { studentID, studentName, ... }
+  
+      for (const student of students) {
+        await Student.findOneAndUpdate(
+          { studentID: student.studentID },
+          {
+            $push: {
+              quizzes: {
+                quizID,
+                quizName,
+                studentScore: 0, // Initial score
+                attempted: false // Initially not attempted
+              }
+            }
+          }
+        );
+      }
+  
+      console.log(`Quiz saved for teacher ${teacherID} and added to students: ${students.length} students.`);
+  
+      res.status(201).json({ message: 'Quiz saved and assigned to students successfully!' });
+  
     } catch (error) {
       console.error(error);
-      res.status(500).json({ message: 'Server error' });
+      res.status(500).json({ message: 'Server error saving quiz' });
     }
   };
+  
+  
   
   const deleteQuiz = async (req, res) => {
     console.log(req.body);

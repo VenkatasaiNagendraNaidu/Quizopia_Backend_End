@@ -11,8 +11,9 @@ const studentSchema = new mongoose.Schema({
   quizzes: [{
     quizID: String,
     quizName: String,
-    score: Number,
-    reportCard: String  // Link to download report card
+    studentScore: {type:Number, default:0},
+    attempted:{type:Boolean, default:false},
+    // reportCard: String
   }]
 }, {
   timestamps: true
